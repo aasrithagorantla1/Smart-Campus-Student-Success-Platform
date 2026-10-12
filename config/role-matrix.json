@@ -1,0 +1,195 @@
+{
+  "roles": [
+    {
+      "role": "College Administrator",
+      "permissions": [
+        {
+          "resource": "student_master",
+          "action": "manage",
+          "allowed_fields": ["all"],
+          "scope": "college"
+        },
+        {
+          "resource": "dashboard",
+          "action": "view",
+          "allowed_fields": ["all"],
+          "scope": "college"
+        },
+        {
+          "resource": "mentor_assignment",
+          "action": "assign",
+          "allowed_fields": ["mentor_id", "department_id", "student_ids"],
+          "scope": "college"
+        },
+        {
+          "resource": "intervention",
+          "action": "review",
+          "allowed_fields": ["all"],
+          "scope": "college"
+        },
+        {
+          "resource": "scoring_config",
+          "action": "manage",
+          "allowed_fields": ["version", "weights", "thresholds", "approved_by", "audit_log"],
+          "scope": "college"
+        }
+      ]
+    },
+    {
+      "role": "HOD",
+      "permissions": [
+        {
+          "resource": "department_dashboard",
+          "action": "view",
+          "allowed_fields": ["department_summary", "risk_counts", "student_metrics"],
+          "scope": "department"
+        },
+        {
+          "resource": "mentor_assignment",
+          "action": "assign",
+          "allowed_fields": ["mentor_id", "student_ids"],
+          "scope": "department"
+        },
+        {
+          "resource": "corrections",
+          "action": "approve",
+          "allowed_fields": ["marks", "attendance", "notes"],
+          "scope": "department"
+        },
+        {
+          "resource": "intervention",
+          "action": "monitor",
+          "allowed_fields": ["status", "owner", "due_date", "outcome"],
+          "scope": "department"
+        }
+      ]
+    },
+    {
+      "role": "Faculty or Mentor",
+      "permissions": [
+        {
+          "resource": "marks",
+          "action": "enter",
+          "allowed_fields": ["subject_code", "student_id", "mark", "assessment_type", "term"],
+          "scope": "assigned_subject"
+        },
+        {
+          "resource": "attendance",
+          "action": "enter",
+          "allowed_fields": ["student_id", "subject_code", "percentage", "period"],
+          "scope": "assigned_subject"
+        },
+        {
+          "resource": "assessment_summary",
+          "action": "enter",
+          "allowed_fields": ["student_id", "summary", "assessment_notes", "lms_activity"],
+          "scope": "assigned_subject"
+        },
+        {
+          "resource": "student_insight",
+          "action": "view",
+          "allowed_fields": ["risk_summary", "score", "trend", "recommendations"],
+          "scope": "assigned_students"
+        },
+        {
+          "resource": "intervention",
+          "action": "create_update",
+          "allowed_fields": ["student_id", "action", "owner", "notes", "status", "due_date"],
+          "scope": "assigned_students"
+        }
+      ]
+    },
+    {
+      "role": "Placement Officer",
+      "permissions": [
+        {
+          "resource": "placement_assessment",
+          "action": "enter",
+          "allowed_fields": ["aptitude_score", "coding_score", "mock_interview_score", "placement_readiness"],
+          "scope": "assigned_students"
+        },
+        {
+          "resource": "skill_assessment",
+          "action": "maintain",
+          "allowed_fields": ["technical_skills", "communication_skills", "project_work", "certifications"],
+          "scope": "assigned_students"
+        },
+        {
+          "resource": "placement_training",
+          "action": "assign",
+          "allowed_fields": ["training_plan", "due_date", "owner"],
+          "scope": "assigned_students"
+        },
+        {
+          "resource": "student_fields",
+          "action": "view",
+          "allowed_fields": ["student_id", "department", "year", "placement_results", "skill_summary", "interview_notes"],
+          "scope": "assigned_students"
+        }
+      ]
+    },
+    {
+      "role": "Activity Coordinator",
+      "permissions": [
+        {
+          "resource": "events",
+          "action": "maintain",
+          "allowed_fields": ["event_name", "department", "participation", "attendance"],
+          "scope": "department"
+        },
+        {
+          "resource": "engagement_verification",
+          "action": "verify",
+          "allowed_fields": ["club_activity", "certifications", "engagement"],
+          "scope": "department"
+        },
+        {
+          "resource": "student_engagement",
+          "action": "view",
+          "allowed_fields": ["engagement_summary", "event_history", "certifications"],
+          "scope": "department"
+        }
+      ]
+    },
+    {
+      "role": "Student",
+      "permissions": [
+        {
+          "resource": "own_profile",
+          "action": "view",
+          "allowed_fields": ["scores", "recommendations", "profile_summary"],
+          "scope": "own_record"
+        },
+        {
+          "resource": "feedback",
+          "action": "submit",
+          "allowed_fields": ["message", "category", "sentiment"],
+          "scope": "own_record"
+        },
+        {
+          "resource": "certifications",
+          "action": "submit",
+          "allowed_fields": ["name", "issuer", "date", "evidence"],
+          "scope": "own_record"
+        }
+      ]
+    },
+    {
+      "role": "System Administrator",
+      "permissions": [
+        {
+          "resource": "accounts",
+          "action": "manage",
+          "allowed_fields": ["user_id", "email", "role", "department_id"],
+          "scope": "college"
+        },
+        {
+          "resource": "technical_config",
+          "action": "manage",
+          "allowed_fields": ["settings", "feature_flags", "audit_trail"],
+          "scope": "college"
+        }
+      ]
+    }
+  ]
+}
