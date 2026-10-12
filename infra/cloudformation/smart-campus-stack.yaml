@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Minimal CloudFront + Lambda Function URL prototype for Smart Campus Student Success Platform.
+
+Parameters:
+  AwsRegion:
+    Type: String
+    Default: us-east-1
+    Description: Single AWS region for all regional resources.
+  DemoMode:
+    Type: String
+    Default: true
+    AllowedValues: [true, false]
+
+Resources:
+  SmartCampusWebLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: smart-campus-web
+      Runtime: python3.12
+      Handler: index.handler
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"statusCode": 200, "body": "Smart Campus Web Lambda placeholder"}
+      MemorySize: 512
+      Timeout: 30
+      Role: !GetAtt SmartCampusExecutionRole.Arn
+
+  SmartCampusApiLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: smart-campus-api
+      Runtime: python3.12
+      Handler: index.handler
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return {"statusCode": 200, "body": "Smart Campus API Lambda placeholder"}
+      MemorySize: 512
+      Timeout: 30
+      Role: !GetAtt SmartCampusExecutionRole.Arn
+
+  SmartCampusExecutionRole:
+    Type: AWS::Lambda::ExecutionRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SmartCampusDynamoPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: "*"
+
+  SmartCampusDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        DefaultRootObject: index.html
+        Origins:
+          - Id: WebOrigin
+            DomainName: !Sub "${SmartCampusWebLambda}.lambda-url.${AwsRegion}.on.aws"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+          - Id: ApiOrigin
+            DomainName: !Sub "${SmartCampusApiLambda}.lambda-url.${AwsRegion}.on.aws"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: WebOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a9-9df3-4e0eb7f3d1ae
+        CacheBehaviors:
+          - PathPattern: "/api/*"
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 4135ea2d-6df8-44a9-9df3-4e0eb7f3d1ae
+            Compress: true
+
+Outputs:
+  WebLambdaArn:
+    Value: !GetAtt SmartCampusWebLambda.Arn
+  ApiLambdaArn:
+    Value: !GetAtt SmartCampusApiLambda.Arn

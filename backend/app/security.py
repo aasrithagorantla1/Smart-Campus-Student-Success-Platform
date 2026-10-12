@@ -1,143 +1,87 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+import os
+from datetime import datetime, timezone
+from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+import jwt
+from fastapi import Depends, Header, HTTPException
 
-from backend.app.config import APP_TITLE, LOCAL_DEMO_AUTH_BYPASS, APP_ENV
-from backend.app.role_policy import get_policy_summary
-from backend.app.role_policy import get_user_claims_from_request
-from backend.app.security import build_demo_user_map, generate_demo_token
-from backend.app.seed import student_csv_template
-from backend.app.service import (
-    audit_view,
-    create_intervention,
-    csv_template,
-    get_dashboard_summary,
-    get_student,
-    import_preview,
-    list_interventions,
-    list_student_summaries,
-    recompute_student,
-    seed_students,
-    submit_import,
-)
-
-app = FastAPI(title=APP_TITLE)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from backend.app.config import APP_ENV, COGNITO_APP_CLIENT_ID, COGNITO_ISSUER, JWT_SECRET
 
 
-def current_user(request: Request, authorization: str | None = Header(default=None, alias="Authorization")) -> dict[str, Any]:
+def generate_demo_token(user_id: str, role: str, department: str | None = None) -> str:
+    payload = {
+        "sub": user_id,
+        "cognito:username": user_id,
+        "role": role,
+        "department": department,
+        "scope": "smart-campus",
+        "aud": COGNITO_APP_CLIENT_ID,
+        "iss": COGNITO_ISSUER,
+        "token_use": "id",
+        "exp": int(datetime.now(timezone.utc).timestamp()) + 3600,
+        "iat": int(datetime.now(timezone.utc).timestamp()),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+
+def verify_token(token: str) -> dict[str, Any]:
+    if not token:
+        raise PermissionError("Missing bearer token")
     try:
-        claims = get_user_claims_from_request(authorization)
-    except PermissionError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-    return claims
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=["HS256"],
+            audience=COGNITO_APP_CLIENT_ID,
+            issuer=COGNITO_ISSUER,
+            options={"require": ["exp", "iss", "aud", "token_use", "sub"]},
+        )
+    except Exception as exc:
+        raise PermissionError(f"Invalid token: {exc}")
+
+    if payload.get("token_use") != "id":
+        raise PermissionError("Unexpected token use")
+    return payload
 
 
-class DemoTokenRequest(BaseModel):
-    user_id: str = Field(..., min_length=1)
-    role: str = Field(..., min_length=1)
-    department: str | None = None
+def build_demo_user_map() -> dict[str, dict[str, Any]]:
+    return {
+        "admin-001": {"user_id": "admin-001", "role": "College Administrator", "department": "college"},
+        "hod-cs": {"user_id": "hod-cs", "role": "HOD", "department": "Computer Science"},
+        "mentor-001": {"user_id": "mentor-001", "role": "Faculty or Mentor", "department": "Computer Science"},
+        "placement-001": {"user_id": "placement-001", "role": "Placement Officer", "department": "Computer Science"},
+        "activity-001": {"user_id": "activity-001", "role": "Activity Coordinator", "department": "Computer Science"},
+        "student-001": {"user_id": "student-001", "role": "Student", "department": "Computer Science"},
+        "sysadmin-001": {"user_id": "sysadmin-001", "role": "System Administrator", "department": "college"},
+    }
 
 
-@app.get("/health")
-def health() -> dict[str, Any]:
-    return {"status": "ok", "app_env": APP_ENV, "local_demo_auth_bypass": LOCAL_DEMO_AUTH_BYPASS}
+def get_user_claims_from_request(auth_header: str | None) -> dict[str, Any]:
+    if not auth_header:
+        if APP_ENV == "local":
+            return {"user_id": "admin-001", "role": "College Administrator", "department": "college"}
+        raise PermissionError("Authentication required")
+
+    scheme, _, token = auth_header.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise PermissionError("Bearer token required")
+    payload = verify_token(token)
+    return {
+        "user_id": payload.get("sub"),
+        "role": payload.get("role", "Student"),
+        "department": payload.get("department"),
+        "claims": payload,
+    }
 
 
-@app.get("/api/auth/role-matrix")
-def role_matrix() -> dict[str, Any]:
-    return get_policy_summary()
+def create_auth_dependency():
+    def dependency(authorization: str | None = Header(default=None, alias="Authorization")):
+        try:
+            claims = get_user_claims_from_request(authorization)
+        except PermissionError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        return claims
 
-
-@app.post("/api/auth/local-demo-token")
-def local_demo_token(payload: DemoTokenRequest) -> dict[str, Any]:
-    if APP_ENV != "local":
-        raise HTTPException(status_code=403, detail="Local auth tokens are disabled outside local mode.")
-    token = generate_demo_token(payload.user_id, payload.role, payload.department)
-    return {"token": token, "user_id": payload.user_id, "role": payload.role}
-
-
-@app.get("/api/auth/claims")
-def auth_claims(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return user
-
-
-@app.get("/api/dashboard/overview")
-def dashboard_overview(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return get_dashboard_summary()
-
-
-@app.get("/api/students")
-def students(user: dict[str, Any] = Depends(current_user)) -> list[dict[str, Any]]:
-    return list_student_summaries()
-
-
-@app.get("/api/students/{student_id}")
-def student_profile(student_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    student = get_student(student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return student
-
-
-@app.post("/api/setup/seed")
-def seed_endpoint(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return seed_students()
-
-
-@app.post("/api/students/{student_id}/recompute")
-def recompute_endpoint(student_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    student = recompute_student(student_id)
-    return {"student_id": student_id, "status": "recomputed", "score": student["score"]}
-
-
-@app.get("/api/imports/template")
-def import_template() -> str:
-    return student_csv_template()
-
-
-@app.post("/api/imports/preview")
-def import_preview_endpoint(payload: dict[str, str], user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    csv_content = payload.get("csv")
-    if not csv_content:
-        raise HTTPException(status_code=400, detail="CSV content required")
-    return import_preview(csv_content, user)
-
-
-@app.post("/api/imports/submit")
-def import_submit(payload: dict[str, str], user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    import_id = payload.get("import_id")
-    if not import_id:
-        raise HTTPException(status_code=400, detail="import_id required")
-    return submit_import(import_id, user)
-
-
-@app.get("/api/interventions")
-def interventions(user: dict[str, Any] = Depends(current_user)) -> list[dict[str, Any]]:
-    return list_interventions()
-
-
-@app.post("/api/interventions")
-def create_intervention_endpoint(payload: dict[str, Any], user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return create_intervention(payload, user)
-
-
-@app.get("/api/audit")
-def audit(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return audit_view()
-
-
-@app.get("/api/seeded")
-def seeded() -> dict[str, Any]:
-    return {"status": "ok"}
+    return dependency
