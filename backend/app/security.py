@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from typing import Any
 
 import jwt
-from fastapi import Depends, Header, HTTPException
+from fastapi import Header, HTTPException
 
 from backend.app.config import APP_ENV, COGNITO_APP_CLIENT_ID, COGNITO_ISSUER, JWT_SECRET
 
@@ -67,6 +66,7 @@ def get_user_claims_from_request(auth_header: str | None) -> dict[str, Any]:
     scheme, _, token = auth_header.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise PermissionError("Bearer token required")
+
     payload = verify_token(token)
     return {
         "user_id": payload.get("sub"),
@@ -85,3 +85,11 @@ def create_auth_dependency():
         return claims
 
     return dependency
+
+__all__ = [
+    "generate_demo_token",
+    "verify_token",
+    "build_demo_user_map",
+    "get_user_claims_from_request",
+    "create_auth_dependency",
+]

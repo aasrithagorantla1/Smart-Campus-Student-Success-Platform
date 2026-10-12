@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import os
 
@@ -14,5 +16,16 @@ COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID", "local-demo-client-id
 COGNITO_ISSUER = os.getenv("COGNITO_ISSUER", "https://localhost:8443")
 JWT_SECRET = os.getenv("JWT_SECRET", "smart-campus-demo-secret")
 ROLE_MATRIX_PATH = BASE_DIR / "config" / "role-matrix.json"
-
 APP_TITLE = "Smart Campus Student Success Platform"
+
+__all__ = [
+    "APP_ENV",
+    "LOCAL_DEMO_AUTH_BYPASS",
+    "AWS_REGION",
+    "COGNITO_USER_POOL_ID",
+    "COGNITO_APP_CLIENT_ID",
+    "COGNITO_ISSUER",
+    "JWT_SECRET",
+    "ROLE_MATRIX_PATH",
+    "APP_TITLE",
+]
