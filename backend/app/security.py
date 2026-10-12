@@ -60,7 +60,7 @@ def build_demo_user_map() -> dict[str, dict[str, Any]]:
 def get_user_claims_from_request(auth_header: str | None) -> dict[str, Any]:
     if not auth_header:
         if APP_ENV == "local":
-            return {"user_id": "admin-001", "role": "College Administrator", "department": "college"}
+            return {"user_id": "admin-001", "role": "College Administrator", "department": "college", "claims": {}}
         raise PermissionError("Authentication required")
 
     scheme, _, token = auth_header.partition(" ")
@@ -85,6 +85,7 @@ def create_auth_dependency():
         return claims
 
     return dependency
+
 
 __all__ = [
     "generate_demo_token",

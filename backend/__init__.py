@@ -60,8 +60,7 @@ def local_demo_token(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=403, detail="Local auth tokens are disabled outside local mode.")
     user_id = payload.get("user_id") or "admin-001"
     role = payload.get("role") or "College Administrator"
-    department = payload.get("department")
-    token = generate_demo_token(user_id, role, department)
+    token = generate_demo_token(user_id, role, payload.get("department"))
     return {"token": token, "user_id": user_id, "role": role}
 
 
